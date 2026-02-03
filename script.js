@@ -1,7 +1,7 @@
 // Configuration
-const SHEET_ID = '1IGOr4USS1TXW8b2YU33uFfPRZAVC1SlPjhuuuWsYo1g';
-const API_KEY = 'AIzaSyDvwVrPJ0lJ-KWyKYlAJZZw3bAzaJHYe8M'; // Using a basic API key - you should generate your own from Google Cloud Console
-const RANGE = 'Bamboo Sheets!A1:AG100';
+const SHEET_ID = '1UjPqIr7sY2Vb1Qm7tIrz6xUcBKUm8uUuT9iImOYcMzA'; // NEW SHEET ID
+const SHEET_NAME = 'Bamboo Sheets'; // Which sheet tab to read from
+const API_KEY = 'AIzaSyDvwVrPJ0lJ-KWyKYlAJZZw3bAzaJHYe8M'; 
 
 let allData = [];
 let filteredData = [];
@@ -10,41 +10,24 @@ let visibleColumns = {};
 let charts = {};
 let draggedColumn = null;
 
-const products = [
-    'Bamboo Sheets',
-    'Bamboo Sheets - 6PCS',
-    'Satin Sheets',
-    'SLEEPHORIA Cooling Sheets',
-    'SLEEP SANCTUARY - Bamboo 6PCS',
-    'SLEEP SANCTUARY - Satin 4PCS',
-    'Satin Sheets 6 Pcs',
-    'SLEEPHORIA - Cooling Comforter',
-    'Silk Pillow Case',
-    'SLEEPHORIA - Cooling Pillowcases',
-    'Satin Fitted Sheet',
-    'Hanging Closet',
-    'Cooling Sheets'
-];
-
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    initializeDashboard();
     loadData();
     setupEventListeners();
 });
 
-// Load data from Google Sheets
+// Load data from Google Sheets with CSV export method (more reliable)
 async function loadData() {
     try {
         document.body.classList.add('loading');
         
-        // Using Google Sheets API
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`;
+        // Use CSV export which doesn't require API key
+        const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/query?tqx=out:csv&sheet=${SHEET_NAME}`;
         const response = await fetch(url);
-        const result = await response.json();
+        const csv = await response.text();
         
-        if (result.values && result.values.length > 0) {
-            processSheetData(result.values);
+        if (csv && csv.length > 0) {
+            parseCSV(csv);
             initializeTable();
             updateMetrics();
             initializeCharts();
@@ -54,42 +37,17 @@ async function loadData() {
     } catch (error) {
         console.error('Error loading data:', error);
         document.body.classList.remove('loading');
-        // Fallback: Load sample data
         loadSampleData();
     }
 }
 
-// Load sample data as fallback
-function loadSampleData() {
-    // Sample data structure matching your sheet
-    const sampleData = [
-        {
-            'Week': 'Week 1',
-            'Date': '28-09-2025',
-            'Bamboo Sheets': 'B08KQKPKWC',
-            'Price USD': 46.74,
-            'Reviews': 4937,
-            'Ratings': 4.5,
-            'Review rate %': 0.00,
-            'BSR MAIN SUB': 7077,
-            'SQP Total Search Volume': 0,
-            'Total Sessions': 12828,
-            'Cost per Session': 0.43,
-            'Units Ordered': 729,
-            '$ Total Sales': 53573,
-            'Total Orders': 689
-        }
-    ];
+// Parse CSV data
+function parseCSV(csv) {
+    const lines = csv.split('\\n').filter(line => line.trim());
+    if (lines.length < 3) return; // Need header and at least 1 data row
     
-    allData = sampleData;
-    filteredData = [...allData];
-    updateMetrics();
-}
-
-// Process data from Google Sheets
-function processSheetData(values) {
-    // Headers are in row 1, skip row 2 (formulation row)
-    const headers = values[0];
+    // Headers in row 1
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
     
     // Initialize column order and visibility
     columnOrder = headers.map((h, i) => ({ name: h, index: i }));
@@ -97,31 +55,69 @@ function processSheetData(values) {
         visibleColumns[header] = true;
     });
     
-    // Process data rows (skip row 2 which is index 1)
+    // Parse data (skip row 2 which is formulation, start from row 3 or index 2)
     allData = [];
-    for (let i = 2; i < values.length; i++) {
-        const row = values[i];
-        if (!row || row.length === 0) continue;
+    for (let i = 2; i < lines.length; i++) {
+        const cells = parseCSVLine(lines[i]);
+        if (!cells || cells.length === 0) continue;
         
         const rowData = {};
         headers.forEach((header, index) => {
-            rowData[header] = row[index] || '';
+            rowData[header] = cells[index] || '';
         });
-        allData.push(rowData);
+        
+        // Only add rows that have Week data
+        if (rowData['Week'] && rowData['Week'].trim()) {
+            allData.push(rowData);
+        }
     }
     
     filteredData = [...allData];
     initializeColumnToggles();
 }
 
-// Initialize dashboard
-function initializeDashboard() {
-    // This will be called before data loads
+// Parse CSV line handling quoted values
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let insideQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+        
+        if (char === '"') {
+            if (insideQuotes && nextChar === '"') {
+                current += '"';
+                i++;
+            } else {
+                insideQuotes = !insideQuotes;
+            }
+        } else if (char === ',' && !insideQuotes) {
+            result.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    
+    result.push(current.trim());
+    return result;
+}
+
+// Load sample data as fallback
+function loadSampleData() {
+    console.log('Loading sample data as fallback');
+    allData = [];
+    filteredData = [];
+    updateMetrics();
 }
 
 // Initialize column toggles in sidebar
 function initializeColumnToggles() {
     const toggleContainer = document.getElementById('columnToggles');
+    if (!toggleContainer) return;
+    
     toggleContainer.innerHTML = '';
     
     columnOrder.forEach(col => {
@@ -149,48 +145,53 @@ function initializeColumnToggles() {
 
 // Setup event listeners
 function setupEventListeners() {
-    document.getElementById('refreshBtn').addEventListener('click', loadData);
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', loadData);
+    }
     
-    document.getElementById('productFilter').addEventListener('input', (e) => {
-        const filter = e.target.value.toLowerCase();
-        filteredData = allData.filter(row => {
-            return Object.values(row).some(val => 
-                String(val).toLowerCase().includes(filter)
-            );
+    const productFilter = document.getElementById('productFilter');
+    if (productFilter) {
+        productFilter.addEventListener('input', (e) => {
+            const filter = e.target.value.toLowerCase();
+            filteredData = allData.filter(row => {
+                return Object.values(row).some(val => 
+                    String(val).toLowerCase().includes(filter)
+                );
+            });
+            updateTable();
+            updateMetrics();
+            updateCharts();
         });
-        updateTable();
-        updateMetrics();
-        updateCharts();
-    });
+    }
     
     // Chart toggles
-    document.getElementById('chartToggleSales').addEventListener('change', toggleChart);
-    document.getElementById('chartToggleOrders').addEventListener('change', toggleChart);
-    document.getElementById('chartToggleRating').addEventListener('change', toggleChart);
-    document.getElementById('chartToggleCost').addEventListener('change', toggleChart);
-    document.getElementById('chartToggleVelocity').addEventListener('change', toggleChart);
-}
-
-// Toggle chart visibility
-function toggleChart(e) {
-    const chartMap = {
-        'chartToggleSales': 'chartSalesCard',
-        'chartToggleOrders': 'chartOrdersCard',
-        'chartToggleRating': 'chartRatingCard',
-        'chartToggleCost': 'chartCostCard',
-        'chartToggleVelocity': 'chartVelocityCard'
-    };
+    const chartToggles = [
+        { id: 'chartToggleSales', cardId: 'chartSalesCard' },
+        { id: 'chartToggleOrders', cardId: 'chartOrdersCard' },
+        { id: 'chartToggleRating', cardId: 'chartRatingCard' },
+        { id: 'chartToggleCost', cardId: 'chartCostCard' },
+        { id: 'chartToggleVelocity', cardId: 'chartVelocityCard' }
+    ];
     
-    const cardId = chartMap[e.target.id];
-    const card = document.getElementById(cardId);
-    if (card) {
-        card.style.display = e.target.checked ? 'block' : 'none';
-    }
+    chartToggles.forEach(toggle => {
+        const el = document.getElementById(toggle.id);
+        if (el) {
+            el.addEventListener('change', (e) => {
+                const cardEl = document.getElementById(toggle.cardId);
+                if (cardEl) {
+                    cardEl.style.display = e.target.checked ? 'block' : 'none';
+                }
+            });
+        }
+    });
 }
 
 // Initialize table
 function initializeTable() {
     const headerRow = document.getElementById('headerRow');
+    if (!headerRow) return;
+    
     headerRow.innerHTML = '';
     
     columnOrder.forEach((col, index) => {
@@ -220,7 +221,9 @@ function dragStart(e) {
 
 function dragOver(e) {
     e.preventDefault();
-    e.target.classList.add('drag-over');
+    if (e.target.tagName === 'TH') {
+        e.target.classList.add('drag-over');
+    }
 }
 
 function drop(e) {
@@ -244,11 +247,13 @@ function dragEnd(e) {
 // Update table with filtered data
 function updateTable() {
     const tbody = document.getElementById('tableBody');
+    if (!tbody) return;
+    
     tbody.innerHTML = '';
     
     const visibleCols = columnOrder.filter(col => visibleColumns[col.name] !== false);
     
-    filteredData.forEach(row => {
+    filteredData.slice(0, 100).forEach(row => {
         const tr = document.createElement('tr');
         
         visibleCols.forEach(col => {
@@ -256,13 +261,16 @@ function updateTable() {
             let value = row[col.name] || '';
             
             // Format numbers
-            if (typeof value === 'number') {
-                if (col.name.includes('$') || col.name.includes('Sales') || col.name.includes('Revenue')) {
-                    value = '$' + value.toFixed(2);
+            if (!isNaN(value) && value !== '') {
+                const num = parseFloat(value);
+                if (col.name.includes('$') || col.name.includes('Sales') || col.name.includes('Revenue') || col.name.includes('Cost')) {
+                    value = '$' + num.toFixed(2);
                 } else if (col.name.includes('%')) {
-                    value = value.toFixed(2) + '%';
+                    value = num.toFixed(2) + '%';
+                } else if (col.name.includes('Rating') || col.name.includes('Velocity')) {
+                    value = num.toFixed(2);
                 } else {
-                    value = value.toLocaleString();
+                    value = Math.round(num).toLocaleString();
                 }
             }
             
@@ -276,165 +284,180 @@ function updateTable() {
 
 // Update metrics
 function updateMetrics() {
+    const totalSalesEl = document.getElementById('totalRevenue');
+    const totalOrdersEl = document.getElementById('totalOrders');
+    const avgRatingEl = document.getElementById('avgRating');
+    const avgVelocityEl = document.getElementById('avgVelocity');
+    
+    if (!totalSalesEl) return;
+    
     const totalSales = filteredData.reduce((sum, row) => {
-        const val = parseFloat(row['$ Total Sales']) || 0;
+        const val = parseFloat(row['$ Total Sales'] || row['Total Sales'] || 0) || 0;
         return sum + val;
     }, 0);
     
     const totalOrders = filteredData.reduce((sum, row) => {
-        const val = parseFloat(row['Total Orders']) || 0;
+        const val = parseFloat(row['Total Orders'] || 0) || 0;
         return sum + val;
     }, 0);
     
     const avgRating = filteredData.length > 0
-        ? filteredData.reduce((sum, row) => sum + (parseFloat(row['Ratings']) || 0), 0) / filteredData.length
+        ? filteredData.reduce((sum, row) => sum + (parseFloat(row['Ratings'] || 0) || 0), 0) / filteredData.length
         : 0;
     
     const avgVelocity = filteredData.length > 0
-        ? filteredData.reduce((sum, row) => sum + (parseFloat(row['Target Daily Sales Velocity']) || 0), 0) / filteredData.length
+        ? filteredData.reduce((sum, row) => sum + (parseFloat(row['Daily Sales Velocity'] || row['Target Daily Sales Velocity'] || 0) || 0), 0) / filteredData.length
         : 0;
     
-    document.getElementById('totalRevenue').textContent = '$' + totalSales.toLocaleString('en-US', { maximumFractionDigits: 0 });
-    document.getElementById('totalOrders').textContent = totalOrders.toLocaleString();
-    document.getElementById('avgRating').textContent = avgRating.toFixed(2);
-    document.getElementById('avgVelocity').textContent = avgVelocity.toFixed(2);
+    totalSalesEl.textContent = '$' + totalSales.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    totalOrdersEl.textContent = totalOrders.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    avgRatingEl.textContent = avgRating.toFixed(2);
+    avgVelocityEl.textContent = avgVelocity.toFixed(2);
 }
 
 // Initialize charts
 function initializeCharts() {
+    // Prepare data for charts
+    const weeks = filteredData.map(row => row['Week'] || '');
+    const sales = filteredData.map(row => parseFloat(row['$ Total Sales'] || row['Total Sales'] || 0) || 0);
+    const orders = filteredData.map(row => parseFloat(row['Total Orders'] || 0) || 0);
+    const costs = filteredData.map(row => parseFloat(row['Cost per Session'] || 0) || 0);
+    const velocities = filteredData.map(row => parseFloat(row['Daily Sales Velocity'] || row['Target Daily Sales Velocity'] || 0) || 0);
+    const ratings = filteredData.map(row => parseFloat(row['Ratings'] || 0) || 0);
+    
     // Sales Chart
-    const salesCtx = document.getElementById('chartSales').getContext('2d');
-    charts.sales = new Chart(salesCtx, {
-        type: 'line',
-        data: {
-            labels: filteredData.map(row => row['Week'] || ''),
-            datasets: [{
-                label: 'Total Sales ($)',
-                data: filteredData.map(row => parseFloat(row['$ Total Sales']) || 0),
-                borderColor: '#2563eb',
-                backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                tension: 0.4,
-                fill: true,
-                pointRadius: 4,
-                pointBackgroundColor: '#2563eb'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: { display: true },
-                datalabels: { display: false }
+    const salesCtx = document.getElementById('chartSales');
+    if (salesCtx && !charts.sales) {
+        charts.sales = new Chart(salesCtx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: weeks,
+                datasets: [{
+                    label: 'Total Sales ($)',
+                    data: sales,
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#2563eb'
+                }]
             },
-            scales: {
-                y: { beginAtZero: true }
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: true },
+                    datalabels: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
             }
-        }
-    });
-    
-    // Orders Chart
-    const ordersCtx = document.getElementById('chartOrders').getContext('2d');
-    charts.orders = new Chart(ordersCtx, {
-        type: 'bar',
-        data: {
-            labels: filteredData.map(row => row['Week'] || ''),
-            datasets: [{
-                label: 'Total Orders',
-                data: filteredData.map(row => parseFloat(row['Total Orders']) || 0),
-                backgroundColor: '#f59e0b'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: { legend: { display: true } },
-            scales: { y: { beginAtZero: true } }
-        }
-    });
-    
-    // Rating Chart
-    const ratingCtx = document.getElementById('chartRating').getContext('2d');
-    charts.rating = new Chart(ratingCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['5 Star', '4 Star', '3 Star', '2 Star', '1 Star'],
-            datasets: [{
-                data: [40, 30, 20, 7, 3],
-                backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6']
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: true } }
-        }
-    });
-    
-    // Cost Chart
-    const costCtx = document.getElementById('chartCost').getContext('2d');
-    charts.cost = new Chart(costCtx, {
-        type: 'line',
-        data: {
-            labels: filteredData.map(row => row['Week'] || ''),
-            datasets: [{
-                label: 'Cost per Session ($)',
-                data: filteredData.map(row => parseFloat(row['Cost per Session']) || 0),
-                borderColor: '#ef4444',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: true } },
-            scales: { y: { beginAtZero: true } }
-        }
-    });
-    
-    // Velocity Chart
-    const velocityCtx = document.getElementById('chartVelocity').getContext('2d');
-    charts.velocity = new Chart(velocityCtx, {
-        type: 'radar',
-        data: {
-            labels: filteredData.slice(0, 8).map(row => row['Week'] || ''),
-            datasets: [{
-                label: 'Sales Velocity',
-                data: filteredData.slice(0, 8).map(row => parseFloat(row['Daily Sales Velocity']) || 0),
-                borderColor: '#8b5cf6',
-                backgroundColor: 'rgba(139, 92, 246, 0.2)',
-                pointBackgroundColor: '#8b5cf6'
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: true } }
-        }
-    });
-}
-
-// Update charts
-function updateCharts() {
-    if (charts.sales) {
-        charts.sales.data.labels = filteredData.map(row => row['Week'] || '');
-        charts.sales.data.datasets[0].data = filteredData.map(row => parseFloat(row['$ Total Sales']) || 0);
+        });
+    } else if (charts.sales) {
+        charts.sales.data.labels = weeks;
+        charts.sales.data.datasets[0].data = sales;
         charts.sales.update();
     }
     
-    if (charts.orders) {
-        charts.orders.data.labels = filteredData.map(row => row['Week'] || '');
-        charts.orders.data.datasets[0].data = filteredData.map(row => parseFloat(row['Total Orders']) || 0);
+    // Orders Chart
+    const ordersCtx = document.getElementById('chartOrders');
+    if (ordersCtx && !charts.orders) {
+        charts.orders = new Chart(ordersCtx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: weeks,
+                datasets: [{
+                    label: 'Total Orders',
+                    data: orders,
+                    backgroundColor: '#f59e0b'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { display: true } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    } else if (charts.orders) {
+        charts.orders.data.labels = weeks;
+        charts.orders.data.datasets[0].data = orders;
         charts.orders.update();
     }
     
-    if (charts.cost) {
-        charts.cost.data.labels = filteredData.map(row => row['Week'] || '');
-        charts.cost.data.datasets[0].data = filteredData.map(row => parseFloat(row['Cost per Session']) || 0);
+    // Rating Chart
+    const ratingCtx = document.getElementById('chartRating');
+    if (ratingCtx && !charts.rating) {
+        const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b) / ratings.length : 0;
+        charts.rating = new Chart(ratingCtx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['5 Star', '4 Star', '3 Star', '2 Star', '1 Star'],
+                datasets: [{
+                    data: [40, 30, 20, 7, 3],
+                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: true } }
+            }
+        });
+    }
+    
+    // Cost Chart
+    const costCtx = document.getElementById('chartCost');
+    if (costCtx && !charts.cost) {
+        charts.cost = new Chart(costCtx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: weeks,
+                datasets: [{
+                    label: 'Cost per Session ($)',
+                    data: costs,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: true } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    } else if (charts.cost) {
+        charts.cost.data.labels = weeks;
+        charts.cost.data.datasets[0].data = costs;
         charts.cost.update();
     }
     
-    if (charts.velocity) {
-        charts.velocity.data.labels = filteredData.slice(0, 8).map(row => row['Week'] || '');
-        charts.velocity.data.datasets[0].data = filteredData.slice(0, 8).map(row => parseFloat(row['Daily Sales Velocity']) || 0);
+    // Velocity Chart
+    const velocityCtx = document.getElementById('chartVelocity');
+    if (velocityCtx && !charts.velocity) {
+        charts.velocity = new Chart(velocityCtx.getContext('2d'), {
+            type: 'radar',
+            data: {
+                labels: weeks.slice(0, 8),
+                datasets: [{
+                    label: 'Sales Velocity',
+                    data: velocities.slice(0, 8),
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                    pointBackgroundColor: '#8b5cf6'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: true } }
+            }
+        });
+    } else if (charts.velocity) {
+        charts.velocity.data.labels = weeks.slice(0, 8);
+        charts.velocity.data.datasets[0].data = velocities.slice(0, 8);
         charts.velocity.update();
     }
 }
