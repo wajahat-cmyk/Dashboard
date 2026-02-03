@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-content">
+                <h1>📊 Products Performance Dashboard</h1>
+                <div class="header-controls">
+                    <div class="search-box">
+                        <input type="text" id="productFilter" placeholder="Search products...">
+                    </div>
+                    <button id="refreshBtn" class="btn-primary">🔄 Refresh Data</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="dashboard-main">
+            <!-- Sidebar Controls -->
+            <aside class="dashboard-sidebar">
+                <div class="sidebar-panel">
+                    <h3>📈 Charts</h3>
+                    <div class="chart-toggles">
+                        <label class="toggle-item">
+                            <input type="checkbox" id="chartToggleSales" checked>
+                            <span>Total Sales</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="checkbox" id="chartToggleOrders" checked>
+                            <span>Orders Trend</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="checkbox" id="chartToggleRating" checked>
+                            <span>Rating Analysis</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="checkbox" id="chartToggleCost" checked>
+                            <span>Cost per Session</span>
+                        </label>
+                        <label class="toggle-item">
+                            <input type="checkbox" id="chartToggleVelocity" checked>
+                            <span>Sales Velocity</span>
+                        </label>
+                    </div>
+
+                    <h3 style="margin-top: 20px;">📋 Columns</h3>
+                    <div class="column-toggles" id="columnToggles">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Dashboard Area -->
+            <section class="dashboard-content">
+                <!-- Key Metrics -->
+                <div class="metrics-container">
+                    <div class="metric-card">
+                        <div class="metric-icon">💰</div>
+                        <div class="metric-info">
+                            <span class="metric-label">Total Revenue</span>
+                            <span class="metric-value" id="totalRevenue">$0</span>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">📦</div>
+                        <div class="metric-info">
+                            <span class="metric-label">Total Orders</span>
+                            <span class="metric-value" id="totalOrders">0</span>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">⭐</div>
+                        <div class="metric-info">
+                            <span class="metric-label">Avg Rating</span>
+                            <span class="metric-value" id="avgRating">0</span>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">📈</div>
+                        <div class="metric-info">
+                            <span class="metric-label">Avg Velocity</span>
+                            <span class="metric-value" id="avgVelocity">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Container -->
+                <div class="charts-container">
+                    <div class="chart-card" id="chartSalesCard">
+                        <h3>Total Sales Trend</h3>
+                        <canvas id="chartSales"></canvas>
+                    </div>
+                    <div class="chart-card" id="chartOrdersCard">
+                        <h3>Orders Over Time</h3>
+                        <canvas id="chartOrders"></canvas>
+                    </div>
+                    <div class="chart-card" id="chartRatingCard">
+                        <h3>Rating Distribution</h3>
+                        <canvas id="chartRating"></canvas>
+                    </div>
+                    <div class="chart-card" id="chartCostCard">
+                        <h3>Cost per Session</h3>
+                        <canvas id="chartCost"></canvas>
+                    </div>
+                    <div class="chart-card" id="chartVelocityCard">
+                        <h3>Sales Velocity by Product</h3>
+                        <canvas id="chartVelocity"></canvas>
+                    </div>
+                </div>
+
+                <!-- Data Table with Draggable Columns -->
+                <div class="table-container">
+                    <h3>📊 Detailed Data</h3>
+                    <div class="table-wrapper">
+                        <table class="data-table" id="dataTable">
+                            <thead id="tableHead">
+                                <tr id="headerRow">
+                                    <!-- Populated by JavaScript -->
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
